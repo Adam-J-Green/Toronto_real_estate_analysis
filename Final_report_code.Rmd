@@ -1,0 +1,956 @@
+---
+title: "Identification of Commercial Real Estate Investment Targets Using Spatial Interpolation of Rent Prices"
+author: "Adam Green"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, out.height = '75%', out.width = '75%', fig.align = 'center')
+```
+
+
+```{r libraries}
+library(sf)
+library(terra)
+library(readxl)
+library(tidyverse)
+library(cancensus)
+library(tmap)
+library(raster)
+library(spatstat)
+library(osmdata)
+library(stars)
+library(spatstat)
+library(tidyverse)
+library(maptools)
+library(dplyr)
+library(geodata)
+library(osmdata)
+library(spDataLarge)
+library(grid)
+library(tmaptools)
+library(OpenStreetMap)
+library(lubridate)
+library(zoo)
+library(xts)
+library(reshape2)
+library(gstat)
+library(ggplot2)
+library(nngeo)
+#install.packages("INLA",repos=c(getOption("repos"),INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)
+library(INLA)
+library(pROC)
+library(lgr)
+library(spatialreg)
+library(spdep)
+library(kableExtra)
+```
+# Executive Summary
+
+## Motivation
+The COVID-19 pandemic has had major global economic impacts, one of the most significant being the rise of work-from-home and the overall residential-based labour market. While much of the world has returned to normal, commercial real-estate markets continue to experience the effects of poor commercial office-space demand (Gupta, 2022). Strain has also grown in the residential real-estate market as rent prices explode in urban areas. The culmination of these issues has been particularly intense in Toronto, Ontario where downtown office vacancies have reached 15.3% in the first quarter of 2023 (The Canadian Press, 2023). Additionally, one bedroom condominium rent has increased 15.1% over the past year (Toronto Residential Real Estate Board, 2023). As office demand drops, residential demand rises, and interest rates rise to combat inflation, commercial real estate owners will likely look to offload properties to avoid defaulting on property loans as their properties stop appreciating in value (Glaze, 2023). The outcome could be discounted commercial buildings available for purchase in areas of high population density. It is likely some of these buildings will be in areas of mixed zoning allowing conversion of commercial office space to residential dwellings. This will provide real estate investors a unique opportunity to generate significant return on investment if they can identify office buildings with the highest potential residential rent price at the lowest sale price. 
+  Given the current real estate environment, this research aims to capitalize on residential conversion through identifying commercial offices, currently for sale, that could return the highest possible rent if converted to residential dwellings. To meet this objective, the current work presents a series of models for estimating potential rent prices at commercial locations across downtown Toronto based on several spatial features of interest.  
+  
+## Data
+
+Data pertaining to rental apartment listings, commercial office listings and a range of spatial features was collected. Rental apartment listings and associated information was gathered from Rentals.ca including rent price, location, square footage, bedroom count and bathroom count while commercial office listings were gathered from Zolo.com with additional information related to office size, location and sale price. These listings datasets represent the basis of this work as predictive models were trained using apartment listings to make predictions for commercial listings. 
+  Beyond listings of interest, spatial features of interest included location of grocery stores, green space, planned affordable housing developments and subways, in addition to crime rates across downtown Toronto. Distance from each listing to the nearest grocery store, nearest green space, etc. was calculated and included in the predictive models. These features were hypothesized to have impacts on residential rent prices with inclusion in modelling achieving greater accuracy in rent price prediction. 
+
+## Methods
+
+Using the datasets described above, several predictive models were trained. The first group of models was created to interpolate rent prices across downtown Toronto at singular spatial locations. These models were used to make point estimates of residential rent for each commercial office located in a mixed zoning area. Following this, the locations with the top five highest predicted rent/sale price ratio were compiled to highlight premier investment targets. Comparatively, the second model of interest was trained to predict rent prices across Toronto at the neighborhood level. Commercial office spaces located in the neighborhoods with the highest predicted rent prices were extracted as the most viable investment targets for comparison against initial point-wise prediction results. The outlined models also included bedroom count and apartment size as predictors, in addition to spatial features.   
+
+## Results
+
+Findings of spatial interpolation of rent among commercial investment targets indicated that office space located at 37 Madison Avenue, 31 Elm Street, and 407-80 Queen Street East would retrieve the highest potential rent price if converted to residential dwellings. Comparatively, when office space sale price was taken into account, locations at 507-800 Bathurst Street and 308-120 Carlton Street were predicted to retrieve the highest return on investment. Following these findings, identified locations were explored for suitability for conversion from office space to residential space. Suggested investment targets appeared adequate for residential conversion with the space on Bathurst Street already located within a partially residential building. Alternative modelling methods had results congruent with spatial interpolation. Despite some positive results, there was a high degree of prediction variance during spatial interpolation that could heavily impact outcomes. Overall the proposed models provide a general indication top commercial investment targets that could be helpful in understanding the rent value at locations in downtown Toronto.  
+
+## Limitations
+
+Despite model successes, several limitations were also present that could impact findings. First, access to commercial and residential datasets was a notable limitation. Compilation of residential listings was limited by slow computation times resulting in a reduction in the area of focus to just downtown Toronto. Additionally, commercial office listings were plagued by missing data and artefacts leading to the removal of ~75% of initially gathered listings. These limitations reduce generalizability of proposed models and overall findings. Investment targets of interest may not represent the overall best investment options, just those from where data was available. 
+
+  Additionally, the outcomes of this research are limited by having no method to evaluate the actual potential for a given commercial office space to be converted to a residential dwelling. While the work identified ideal investment targets, findings are based only on predicted rent. It is possible that some of the top investment targets are unfeasible for residential conversion given their physical structure/appearance. Certain office spaces can not realistically be converted to residence while maintaining an aesthetic appeal that would attract renters. For this reason, findings must be used strategically to initially identify investment targets before further research is completed to understand the true potential of residential conversion. Finally, the findings of this work are limited by the inability to assess accuracy of rent predictions on commercial buildings. As true residential rent prices for these locations do not exist, the accuracy of predicted rent is unknown. Efforts were made to evaluate model accuracy using the apartment listing dataset, however, the outcomes of the analysis cannot be generalized fully to predictions made on commercial office spaces. Overall, limitations encountered in this work impact the ability to generalize findings, however, in the context outlined in the full report, findings are meaningful in providing initial indication of profitable commercial investment targets for the purpose of residential conversion in dowtown Toronto.              
+
+# Report
+
+# Introduction
+
+The COVID-19 pandemic has had major global economic impacts, one of the most significant being the rise of work-from-home and the overall residential-based labour market. While much of the world has returned to normal, commercial real-estate markets continue to experience the effects of poor commercial office-space demand^9^. Strain has also grown on the residential real-estate market as rent prices explode in urban areas. The culmination of these issues has been particularly intense in Toronto, Ontario where downtown office vacancies have reached 15.3% in the first quarter of 2023^10^. Additionally, one bedroom condominium rent has increased 15.1% over the past year ^11^. *Figure 1* provides indication of the trends in Toronto residential rent over the last 30 years. As office demand drops, residential demand rises and interest rates rise to combat inflation, commercial real estate owners will look to offload properties to avoid defaulting on their property loans as their properties stop appreciating in value^12^. The outcome could be discounted commercial buildings available for purchase in areas of high population density. It is likely some of these buildings will be in areas of mixed zoning allowing conversion of commercial office space to residential dwellings. This will provide real estate investors a unique opportunity to generate significant return on investment if they can identify office buildings with the highest potential residential rent price at the lowest sale price.
+	The current work aims to analyze the Toronto rent market to identify the influence of geo-spatial features on apartment rent prices. The project consists of two primary objectives. The first is to train a spatial interpolation model to predict Toronto rent prices given a range of characteristics including location, proximity to amenities, square footage, proximity to green space and proximity to transportation. The second objective is to implement the model for inference in the prediction of rent prices for commercial buildings if converted to a residence. The second objective will specifically target areas where zoning laws permit the conversion of office space to residence. Overall, the outcomes of this research will be a trained model capable of predicting rent price given characteristics of a real estate location, as well as a comprehensive understanding of the most valuable office space from a residential perspective.   
+
+
+```{r echo=FALSE}
+#create bounding box for entirety of Toronto
+toronto_bbox = c(left = -79.6392, 
+                 bottom = 43.403221,
+                 right = -79.115952,
+                 top = 43.855457)
+
+
+#create zoomed bounding box polygon to represent the sub-region of interest in the city's downtown
+x_coords<- c(-79.43203, -79.35401, -79.35401,  -79.43203)
+y_coords<- c(43.63689, 43.63689, 43.67521, 43.67521)
+polygon<- sp::Polygon(cbind(x_coords, y_coords)) 
+poly<- sp::Polygons(list(polygon), ID = 'A')%>% list()%>% sp::SpatialPolygons()%>%st_as_sf() %>% st_set_crs('EPSG:4326') %>%st_transform(crs = 'EPSG:2958')
+
+
+#define function to help set proper crs when reading in external datasets
+set_coord_map<- function(data){
+  data = data%>%st_set_crs('EPSG:4326')
+  data = data%>% st_transform('EPSG:2958')
+  data = data%>% st_transform('EPSG:2017')
+  return(data)
+}
+
+#load datasets for spatial features
+crime_rates<- set_coord_map(read_sf("Data/Crime/", layer = "neighbourhood-crime-rates - 4326"))
+
+green_space<- set_coord_map(read_sf("Data/GreenSpace", layer = "Green Spaces - 4326"))
+
+ward_locations<- set_coord_map(read_sf("Data/25-ward-model-december-2018-wgs84-latitude-longitude", layer ='WARD_WGS84'))%>%dplyr::select()
+
+affordable_housing<- set_coord_map(read_sf("Data/Affordable Rental Housing Pipeline - 4326", layer = 'Affordable Rental Housing Pipeline - 4326'))
+
+subway<- set_coord_map(read_sf("Data/ttc-subway-shapefile-wgs84", layer = 'TTC_SUBWAY_LINES_WGS84'))
+
+zoning<- set_coord_map(read_sf("Data/Zoning", layer = 'Zoning Area - 4326'))
+
+#load data for rental listings
+Listings_wlocations<- read_csv('Data/Listings_wlocations.csv')
+Listings_wlocations_full<-  read_csv('Data/Listings_wlocations_full.csv')
+
+all_tor<- read_csv('Data/Listings_wlocations_full.csv')
+all_tor <- st_as_sf(all_tor, coords = c('longitude', 'latitude'))%>% st_set_crs('EPSG:4326') %>% st_transform(crs = 'EPSG:2958')
+
+#load locations of grocery stores
+grocery_stores = opq(toronto_bbox)%>%
+  add_osm_feature(key ='shop', value = 'supermarket')%>% osmdata_sf()%>% .$osm_points %>% dplyr::select() %>% st_transform('EPSG:2017')
+
+#generate toronto border shape
+border_toronto = opq(toronto_bbox)%>%
+  add_osm_feature(key = 'name', value = 'Toronto')%>%
+  add_osm_feature(key = 'admin_level', value = '6')%>% osmdata_sf()%>%.$osm_multipolygon%>% dplyr::select()%>% st_transform('EPSG:2958')
+
+#process rental listings to sf format with interpolated apartment size values
+listings = st_as_sf(Listings_wlocations, coords = c('longitude', 'latitude'))%>% st_set_crs('EPSG:4326') %>% st_transform(crs = 'EPSG:2958')
+
+all_listings = st_as_sf(Listings_wlocations_full, coords = c('longitude', 'latitude'))%>% st_set_crs('EPSG:4326') %>% st_transform(crs = 'EPSG:2958')
+
+#convert columns to numeric
+listings$beds = as.numeric(listings$beds)
+listings$baths = as.numeric(listings$baths)
+listings$size = as.numeric(listings$size)
+#filter listings to remove outliers from price and size columns
+listing = listings%>%dplyr::select(price, beds, baths, size, address) %>%st_transform('EPSG:2017')
+
+listing$price = ifelse(listing$price>9000, NA, listing$price)
+listing$size = ifelse(listing$size<100 | listing$size>4500, NA, listing$size)
+listing = listing %>% 
+  group_by(beds) %>% 
+  mutate_if(is.numeric, 
+            function(x) ifelse(is.na(x), 
+                               mean(x, na.rm = TRUE), 
+                               x))
+
+listing = listing%>%ungroup()
+
+#retrieve commercial listings
+commercial = read_csv('Data/Commercial_listings.csv') %>% st_as_sf(coords = c('longitude', 'latitude'))%>%st_set_crs('EPSG:4326') %>% st_transform(crs = 'EPSG:2958')
+commercial$size = gsub('sqft', x = commercial$size, " ")
+
+#create a grid for toronto to allow interpolation
+toronto_grid = st_bbox(st_transform(poly, 'EPSG:2017'))%>%st_as_stars(dx = 10)%>%st_crop(st_transform(border_toronto, 'EPSG:2017')) 
+
+```
+
+
+
+```{r}
+#Code to arrange data for all of toronto, not ultimately used for any purpose
+
+#convert columns to numeric
+all_listings$beds = as.numeric(all_listings$beds)
+all_listings$baths = as.numeric(all_listings$baths)
+all_listings$size = as.numeric(all_listings$size)
+
+#filter listings to remove outliers from price and size columns
+all_listing = all_listings%>%dplyr::select(price, beds, baths, size, address) %>%st_transform('EPSG:2017')
+
+all_listing$price = ifelse(all_listing$price>9000, NA, all_listing$price)
+all_listing$size = ifelse(all_listing$size<100 | all_listing$size>4500, NA, all_listing$size)
+all_listing = all_listing %>% 
+  group_by(beds) %>% 
+  mutate_if(is.numeric, 
+            function(x) ifelse(is.na(x), 
+                               mean(x, na.rm = TRUE), 
+                               x))
+
+all_listing = all_listing%>%ungroup()
+```
+
+
+```{r include = FALSE}
+#Add Distance based features to dataset
+dist_list_subway = st_nn(listing$geometry, subway$geometry, k = 1, returnDist = T)
+df_subway<- as.data.frame(dist_list_subway['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+listing<- listing%>% mutate(prox_subway = df_subway$result)
+
+#distance to green space
+dist_list_green = st_nn(listing$geometry, green_space$geometry, k = 1, returnDist = T)
+df_green<- as.data.frame(dist_list_green['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+listing<-listing %>%mutate(prox_green = df_green$result)
+
+#distance to nearest grocery store
+dist_list_grocery = st_nn(listing$geometry, grocery_stores$geometry, k = 1, returnDist = T)
+df_grocery<- as.data.frame(dist_list_grocery['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+listing<-listing %>%mutate(prox_grocery = df_grocery$result)
+
+#distance to nearest affordable housing development
+dist_list_affordable = st_nn(listing$geometry, affordable_housing$geometry, k = 1, returnDist = T)
+df_affordable<- as.data.frame(dist_list_affordable['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+listing<-listing %>%mutate(prox_affordable = df_affordable$result)
+
+#crime rate per 1000 people
+crime_rates = crime_rates %>% mutate(robberies_per_pop = ROBBERY112/POPN_PR4*1000) %>% dplyr::select(robberies_per_pop)
+
+rast_crime<- raster::rasterize(crime_rates, rast(toronto_grid), crime_rates$robberies_per_pop)
+list_vect<- vect(listing)
+
+listing_full<- terra::extract(rast_crime, listing) %>% mutate(across(layer, ~replace_na(., median(.,na.rm = TRUE ))))
+
+listing$crime_rate<- listing_full$layer
+poly_transformed<- poly%>% st_transform('EPSG:2017')
+
+#double check crop listings
+listing = listing[poly_transformed,,op=st_within]
+
+```
+
+
+```{r eval=FALSE}
+
+### Code used to prepare dataset for all of Toronto, ultimately not used ###
+#Set larger bounding box for all of toronto
+x_coords<- c(-79.6392, -79.115952, -79.115952,  -79.6392)
+y_coords<- c(43.403221, 43.403221, 43.855457, 43.855457)
+polygon<- sp::Polygon(cbind(x_coords, y_coords)) 
+poly<- sp::Polygons(list(polygon), ID = 'A')%>% list()%>% sp::SpatialPolygons()%>%st_as_sf() %>% st_set_crs('EPSG:4326') %>%st_transform(crs = 'EPSG:2958')
+
+poly_transformed<- poly%>% st_transform('EPSG:2017')
+
+dist_list_subway = st_nn(all_listing$geometry, subway$geometry, k = 1, returnDist = T)
+df_subway<- as.data.frame(dist_list_subway['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+all_listing<- all_listing%>% mutate(prox_subway = df_subway$result)
+
+dist_list_green = st_nn(all_listing$geometry, green_space$geometry, k = 1, returnDist = T)
+df_green<- as.data.frame(dist_list_green['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+all_listing<-all_listing %>%mutate(prox_green = df_green$result)
+
+dist_list_grocery = st_nn(all_listing$geometry, grocery_stores$geometry, k = 1, returnDist = T)
+df_grocery<- as.data.frame(dist_list_grocery['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+all_listing<-all_listing %>%mutate(prox_grocery = df_grocery$result)
+
+dist_list_affordable = st_nn(all_listing$geometry, affordable_housing$geometry, k = 1, returnDist = T)
+df_affordable<- as.data.frame(dist_list_affordable['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+all_listing<-all_listing %>%mutate(prox_affordable = df_affordable$result)
+
+crime_rates = crime_rates %>% mutate(robberies_per_pop = ROBBERY112/POPN_PR4*1000) %>% dplyr::select(robberies_per_pop)
+
+rast_crime<- raster::rasterize(crime_rates, rast(toronto_grid), crime_rates$robberies_per_pop)
+list_vect<- vect(listing)
+
+all_listing_full<- terra::extract(rast_crime, all_listing) %>% mutate(across(layer, ~replace_na(., median(.,na.rm = TRUE ))))
+
+all_listing$crime_rate<- all_listing_full$layer
+poly_transformed<- poly%>% st_transform('EPSG:2017')
+
+all_listing = all_listing[poly_transformed,,op=st_within]
+```
+
+
+
+```{r fig.cap='Trend in rent prices across Toronto over the last 30 years, separated by number of bedrooms'}
+
+#Observe rent trends over the past 30 years
+rent_trend <-read_csv("Data/rent_trend.csv", 
+    col_types = cols(Bachelor = col_double()))
+
+colnames(rent_trend)[1]<- 'date'
+
+rent_trend$date<- gsub('October', '',rent_trend$date) %>% as.Date(format='%Y')
+colors <- c("1 Bedroom" = "green", "2 Bedroom" = "blue", "3+ Bedroom" = "orange", "Total" = 'pink')
+
+ggplot(data = rent_trend, aes(x = rent_trend$date))+
+  geom_line(aes(y = rent_trend$`1 Bedroom`, color = '1 Bedroom'))+
+  geom_line(aes(y = rent_trend$`2 Bedroom`, color = '2 Bedroom'))+
+  geom_line(aes(y = rent_trend$`3 Bedroom +`, color = '3+ Bedroom'))+
+  geom_line(aes(y = rent_trend$Total, color = 'Total'))+
+  labs(title = 'Trend in Toronto Rent Prices 1990-2022', x = 'Year', y = 'Rent Price ($)', color = 'Legend')+
+  scale_color_manual(values = colors)
+
+```
+
+
+# Data Sources
+
+The data explored in this report spans several separate datasets as the final listing price analysis model must incorporate rental listings and their associated features with datasets related to various amenities and spatial features including green space, crime rates, grocery stores and affordable housing developments. Additionally, inference regarding rental prices will be made on a separate dataset pertaining to commercial office spaces and their features. Datasets are described below. It should also be noted that the CRS used for this analysis was UTM zone 17N (EPSG:2958) while modelling was completed with data transformed to a projected CRS, MTM zone 8 (EPSG:2017).
+
+## Rental Listings
+
+Rental listings used in this analysis were gathered from rentals.ca^1^ for a region within Toronto focused on downtown and the close neighbouring area. The bounding box used to select this area is noted in the associated analysis code. A subsection of Toronto was selected for this analysis due to the high density of rental listings across the city and computation rate issues related to the scraping process. Positive results in this research could warrant further exploration of a larger region of Toronto. The data gathered from rentals.ca included 1748 viable listings with associated location, price, bedroom count, bathroom count and square footage. Price was the response variable of interest in this analysis with values ranging from \$800 - \$41000 and an average of \$3019. Visualization of gathered listing locations is provided in *Figure 2*. Additional cleaning steps undertaken to prepare this data for EDA and modelling are detailed below.  
+
+
+```{r fig.cap = 'The distribution of rental apartment listings retrieved across downtown Toronto to be used in interpolation of rent'}
+
+tmap_mode('plot')
+osm <- read_osm(poly)
+
+#generate initial EDA plot to view scraped listings
+map1 =  tm_layout(
+  main.title = "Locations of Available Rental Listings within \nDowntown Toronto and the Surrounding Area")+
+  tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(all_listings$geometry)+
+  tm_symbols(size = 0.2, col = 'blue')+
+  tm_scale_bar()
+
+#set inset map for inital EDA plot
+toronto_map<- tm_shape(border_toronto)+
+  tm_polygons()+
+  tm_shape(poly)+
+  tm_borders(lwd = 3)
+
+map1
+print(toronto_map, vp = viewport(0.25, 0.70, width = 0.2, height = 0.2))
+
+```
+
+
+## Commercial Listings and Zoning Data
+
+The final dataset of interest gathered for this analysis included the locations of 324 commercial office spaces available for purchase across all of Toronto. This data was scraped from Zolo.ca^7^ and includes the listing location as well as the sale price and the size of the office space. The rent prediction model fit on residential listings will be used for inference on the commercial spaces dataset as the final outcome of this research. The distribution of commercial office spaces across the area of interest is provided in *Figure 3*, however the listings displayed in this image represent only those residing in mixed zoning areas. 49 final listings are included in this dataset.
+
+  Beyond Specific commercial listings, data pertaining to by-law zoning across Toronto was also gathered for use in the model inference stage. A key component of commercial office space rent analysis is that the office space must be eligible to be converted into residential space. To ensure this, zoning areas were retrieved from Toronto's open data portal^6^ and will be used to extract commercial office spaces for sale that reside in mixed-zoning areas.
+
+```{r fig.cap = 'Distribution of commercial office locations within mixed zoning areas in downtown Toronto, to be used for inference during modeling'}
+#filter zoning data to include only zones of interest
+filtered_zones = zoning%>% filter(!ZN_ZONE3 %in% c('IE', 'IH', 'OG', 'OM', 'OR', 'I', 'IS', 'IPW', 'OC', 'O', 'E', 'EL', 'UT', 'ON', 'EH', 'EO'))
+
+
+#generate plot for zoning/commercial listings in all of toronto
+map2 =tm_layout(main.title = 'Zoning Regions For Toronto, with \nLocations of Commercial Office Space For Sale')+
+  tm_shape(filtered_zones)+
+  tm_polygons(col = 'ZN_ZONE3', title = 'Zone')+
+  tm_shape(commercial)+
+  tm_symbols(size = 0.2, col = 'orange')+
+  tm_scale_bar()
+
+
+#filter commercial listings to area of interest
+poly_transformed<- poly%>%st_transform(crs = 'EPSG:2017')
+commercial_pro<- commercial[poly,,op = st_within] %>% st_transform(crs = 'EPSG:2017')
+zoning_proj<- filtered_zones[poly_transformed,,op = st_within]
+commercial_proj<- commercial_pro[filtered_zones,, op= st_within]
+
+#generate plot to view commercial listings with zoning
+map3 =tm_layout(main.title = 'Zoning Regions of Downtown Toronto, with \nLocations of Office Space For Sale')+ tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(zoning_proj)+
+  tm_polygons(col = 'ZN_ZONE3', title ='Zone')+
+  tm_shape(commercial_proj)+
+  tm_symbols(size = 0.3, col = 'orange')
+
+#arrange plots into grid
+
+map3
+
+```
+
+## Spatial Features
+
+As previously noted, several spatial features of interest were retrieved based on their perceived relationship with rental listing prices. Shape files pertaining to crime rates^2^, planned affordable housing developments^3^, subway lines^4^ and green space^5^ were retrieved from the City of Toronto's open data portal. Additionally, locations of grocery stores in Toronto were gathered as the final spatial feature of interest in modelling. Grocery store data was retrieved from Open Street Map. These features are visualized in *Figure 4*. While the locations of these features were retrieved for the entirety of Toronto, this analysis restricts the features to only downtown Toronto and the surrounding area.
+
+## Data Cleaning and Preprocessing 
+
+Several data cleaning steps were undertaken prior to data exploration and initial modelling. First, regarding rental listings, initial scraped data required text processing to extract only key values, as well as removing duplicate rows and rows that represented listings for multiple apartments across a range of prices. Following this process, apartment price values were capped at \$9000 and apartment size was restricted between 100sqft and 4500sqft. These adjustments were made as it was observed that artefacts in the data tended to appear among listings with values outside of these cut-offs. This alternation ultimately aims to eliminate inaccuracies in the data. Further, the apartment size column included approximately 25% missing values. To manage this issue, square footage values were imputed based on the mean size of apartments that had the same number of bedrooms. The pre-processing methods removed approximately 125 observations from the final dataset. The final data alteration of note was removal of listings located at the same listed location. Including multiple listings from the same location was found to disrupt kriging attempts so duplicate locations were removed. This process resulted in removal of approximately 600 observations.
+
+  Beyond cleaning related to the listings dataset, data pertaining to spatial features underwent simple pre-processing to convert features to a consistent CRS matching the listings dataset. Data pertaining to Toronto zoning was filtered to include only zones of interest, such as those falling under the residential and commercial zoning umbrellas. Lastly, data related to commercial listings underwent pre-processing similar to the residential listings data after scraping was complete. This process extracted only necessary values into a concise dataset while missing values were dropped from the dataset as Zolo.ca masked the features of certain office spaces. The commercial listings were also filtered base don the observation window of interest surrounding the Toronto downtown area. As the eventual interpolation model for rent price will be fit based only on the downtown and surrounding area, inference will only be made on commercial buildings in this region as well. The final commercial listings dataset contained 96 observations of listing location, price and size.
+
+# Methods
+
+This work presents a series of models to be used in the exploration of potential residential rent price among commercial office spaces. Following exploratory analysis, the primary model investigated was a universal kriging model that included previously defined predictors in an effort to interpolate rent prices with greater accuracy than ordinary kriging. Four separate kriging models were created based on findings during exploratory analysis and model evaluation. Based on outcomes of exploratory analysis, the two feature sets of interest were the full set with all previously outlined predictors, and the reduced set which included only bedroom count, size, proximity to affordable housing developments and proximity to a grocery store. Two models were created to predict rent price outright using these feature sets while two models were created to predict the logarithm of rent price. A summary of models under investigation is provided in *Table 1*. The decision to attempt kriging using the the logarithm of price was made due to negative price estimates being made by the original models. Using the logarithm of price ensured that all estimates remained above 0. The variogram used in these models also included an error term to promote smoothing of estimates during kriging. After fitting the kriging model, the model was subsequently used to interpolate rent prices across all commercial office space locations of interest. This process required configuration of the commercial listings dataset to include the same feature set as that of the apartment listings. Following final predictions of potential rent price, commercial locations were ranked based on absolute predicted rent price as well the ratio of rent price to building sale price to determine final investment targets. Kriging attempts were verified using 5 fold cross-validation based on the original listings dataset to provide indication of overall model efficacy.
+  Beyond kriging, modelling efforts also involved use of an INLA model to predict rent prices across Toronto at the neighborhood level, with neighborhood boundaries defined by the boundaries used in the crime rates dataset. This model was meant to provide alternative results against which to compare the outcomes of kriging. Initially, areal estimation of rent price was intended for the entirety of Toronto instead of restricting prediction to the downtown area. Issues and inaccuracies in modelling ultimately led to use of just the downtown area for this model as well. A single INLA model iteration was observed based on the same feature set used in the reduced kriging model and a besag model applied for approximation of structured spatial random effects. After predicting rent across neighborhoods in the downtown Toronto area, commercial office locations situated in the regions of highest predicted rent were extracted for final analysis. Motivated by findings of the INLA model, a final generalized linear model based on a gamma family distribution was also developed to observe predictive ability of a model using the features of interest without the inclusion of a spatial structured random effects term. This model was again fit using the full feature set and used to predict commercial locations with the top rent to sale price ratio. Final results produced using the three model types were compared to obtain final conclusions.    
+
+
+# Results
+
+Results of the outlined modelling process are separated into sections below including exploratory analysis outcomes, ordinary kriging, universal kriging and areal modelling with INLA. 
+
+## Exploratory Analysis and Spatial Association of Predictors
+
+The compound plot provided in *Figure 4* explores the distribution and observation density of spatial features of interest. Plots 4A and B detail the locations of grocery stores and planned affordable housing developments in addition to the intensity of observations across the region of interest. Regarding grocery stores, observations appear clustered with areas of high intensity located in the corners of the downtown area with relatively low density through the interior of the region of interest. Based on this plot, it is clear that proximity to grocery stores as well as the number of nearby grocery stores will vary across rental listings, motivating this feature for inclusion in the proposed predictive model. Additionally, planned affordable housing developments vary across the region of interest with highest intensity across the north east of the region and lowest intensity across the south west. It is expected that rent prices will be impacted by the density of these affordable housing developments as low-cost housing may drive down rental market value. Despite this intuitive outcome, some studies have actually found the opposite with affordable housing developments increasing surrounding rental prices as much as 6.5%^8^. Regardless of the net positive or negative affect on surrounding rental prices, affordable housing developments will be included as a spatial feature in final modelling efforts to capture possible variation in rental prices stemming from these projects. 
+  
+  Finally, plots 4C and D indicate the distribution of green space and crime rates, respectively, across downtown Toronto. Dispersion of green space is somewhat uniform across the region, however, it appears the waterfront area has a slightly reduced quantity and average size of green space. This variation promotes inclusion of proximity to green space as a feature during predictive modelling. Variation in crime rates per 1000 people across the region varies greatly with notable increases in crime rates within the University, Downtown Yonge East and Moss Park regions. Plot 4D was created using only reported robberies due to the unavailability of aggregate crime statistics. It should be noted that crime rates appear to correlate positively with affordable housing developments. As well, planned affordable housing developments and grocery stores were found to correlate closest with rent prices compared to other predictors. Overall, the spatial features explored in *Figure 4* provide initial indication of potential sources of spatial variation in rental listing prices. This variation motivates inclusion of these variables in predictive modelling efforts to improve accuracy by accounting for a higher proportion of spatial variation in listing prices.
+  
+```{r }
+
+Model<-c('Kriging Full, Standard Model', 'Kriging Reduced, Standard Model', 'Kriging Full, Log Model', 'Kriging Reduced, Log Model', 'INLA', 'GLM')
+Predictor_set<-c('All Predictors', 'Reduced Set', 'All Predictors', 'Reduced Set','Reduced Set', 'All Predictors')
+Response_variable<- c('Rent Price', 'Rent Price', 'Log of Rent Price', 'Log of Rent Price', 'Rent Price', 'Rent Price')
+Purpose<- c('Primary Observation', 'Primary Observation', 'Primary Observation', 'Primary Observation', 'Comparison Model', 'Comparison Model')
+title<- c('Full Standard', 'Reduced Standard', 'Full Log', 'Reduced Log','INLA', 'GLM')
+models<- data.frame(Model = Model, 'Features' = Predictor_set, `Response Variable` = Response_variable, Purpose = Purpose, Title = title)
+  
+knitr::kable(models, format = 'latex', caption = 'Models explored in this work included the predictor set, response variable and purpose in this work')
+
+```
+
+
+```{r fig.show="hold", out.width="45%", fig.cap="Distribution of spatial features of interest across downtown Toronto. Plots detailing grocery stores and planned affordable housing developments provide the density of these features in relation to observed listing locations"}
+
+
+grocery_stores = grocery_stores %>% st_transform('EPSG:2958')
+affordable_housing = affordable_housing %>% st_transform('EPSG:2958')
+#set view window for point pattern density analysis of spatial features
+window = as.owin(as_Spatial(poly))
+grocery.ppp= as.ppp(grocery_stores)
+
+afford.ppp = as.ppp(affordable_housing)
+Window(grocery.ppp) = window
+Window(afford.ppp) = window
+
+#generate density map for grocery stores and affordable housing developments
+grocery_density = density(grocery.ppp)%>%as.im()%>%rast()
+afford_density = density(afford.ppp)%>%as.im()%>%rast()
+crs(grocery_density) = 'EPSG:2958'
+crs(afford_density) = 'EPSG:2958'
+
+
+#gerenate plots to view spatial features across area of interest in toronto
+spatial_features_afford<- tm_layout(main.title = 'Planned Affordable Housing Developments')+
+  tm_shape(afford_density*10000)+
+  tm_raster(title = 'Density of Affordable Housing Developments per Square kilometer')+
+  tm_shape(affordable_housing)+
+  tm_symbols(col = 'purple', size = 0.1)+
+  tm_scale_bar()
+
+spatial_features_grocery<- tm_layout(main.title = 'Grocery Stores')+
+  tm_shape(grocery_density*10000)+
+  tm_raster(title = 'Density of Grocery Store Locations per Square Kilometer')+
+  tm_shape(grocery_stores)+
+  tm_symbols(col = 'green', size = 0.1)+
+  tm_scale_bar()
+
+spatial_features_green<- tm_layout(main.title = 'Distribution of Green Space')+
+  tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(green_space)+
+  tm_polygons(col = 'green')+
+  tm_shape(subway)+
+  tm_lines(col = 'black', size = 1.5)+
+  tm_scale_bar()
+
+spatial_features_crime<- tm_layout(main.title = 'Crime Distribution')+
+  tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(crime_rates)+
+  tm_polygons(col = 'robberies_per_pop', title = 'Robberies per 1000 people')+
+  tm_shape(listing$geometry)+
+  tm_symbols(col = 'black', size = 0.1)+
+  tm_scale_bar()+
+  tm_legend()
+
+
+#show plots in 2 by 2 grid
+par(mfrow = c(2,2))
+spatial_features_afford
+print(toronto_map, vp = viewport(0.76, 0.76, width = 0.2, height = 0.2))
+spatial_features_grocery
+print(toronto_map, vp = viewport(0.76, 0.76, width = 0.2, height = 0.2))
+spatial_features_crime
+print(toronto_map, vp = viewport(0.76, 0.76, width = 0.2, height = 0.2))
+spatial_features_green
+```
+
+## Variogram and Ordinary Kriging
+
+Following observation of spatial features, a baseline ordinary kriging model was created to provide initial indication of interpolated rent across downtown Toronto. To achieve this, a variogram model was fit to evaluate variance in rental price between listings over a range of separation distances. A nugget was apparent in the variogram model indicating that subsequent modelling efforts should include an error term to smooth rental price estimates at the point of observation. Rent price interpolation across downtown Toronto using the ordinary kriging model is visualized in *Figure 5*. This figure provides initial indication of rent variation across Toronto, however, noise is apparent as there is high variance around observed listings. This noise further motivates inclusion of additional predictors and an error term in a final universal kriging model. Additionally, this variation promotes the use of a secondary areal model to estimate rent across Toronto neighbourhoods as opposed to interpolation of prices using point estimates. Modelling in this way could improve the accuracy of rent price prediction if the universal kriging model was found ineffective. Overall, indicators suggested universal kriging would be able to improve upon ordinary kriging efforts to provide more accurate estimates of commercial office residential rent. 
+   
+```{r include = FALSE}
+#create variogram
+variogram1 = variogram(price~1, listing)
+
+#fit variogram model
+model = fit.variogram(variogram1, vgm(1000000,'Exp',750,1))
+
+#plot variogram model
+#variogram_plot<- plot(gamma~dist, variogram1,
+     #ylab = expression(gamma(h)),
+     #xlab = "Distance (h) in metres",
+     #pch =16, 
+     #main = "Variation in Price Between Listing Locations \nas a Function of Proximity")
+
+#drop duplicate listings form the dataset
+listing_nodups <- listing[!duplicated(listing$geometry),]
+price_krig<-krige(price~1, listing_nodups, toronto_grid, model)
+
+#plot ordinary kriging model of predicted prices
+ordinary_krige<- tm_layout(main.title = "Predicted Listing Prices Across Downtown\nToronto Using Ordinary Kriging")+
+  tm_shape(price_krig[1,,])+
+  tm_raster(title = 'Predicted Apartment Rental Prices', palette = "-Spectral")+
+  tm_shape(listing)+
+  tm_symbols(size = 0.2, col = 'blue')
+
+```
+
+
+```{r fig.cap = 'Predicted rent prices across downtown Toronto using ordinary kriging'}
+#display ordinary kriging interpolation map
+ordinary_krige
+print(toronto_map, vp = viewport(0.74, 0.70, width = 0.2, height = 0.2))
+
+```
+
+
+```{r eval = FALSE, include=FALSE}
+crime_rater<-tm_layout(main.title = 'Crime Distribution')+
+  tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(crime_rates)+
+  tm_polygons(col = 'robberies_per_pop', title = 'Robberies per 1000 people')+
+  tm_scale_bar()
+
+list_of_maps<- list(spatial_features_grocery, spatial_features_green, spatial_features_afford, crime_rater)
+tmap_animation(list_of_maps, filename = 'Features_gif.gif', delay = 300, width = 600, height = 600)
+
+```
+
+
+```{r include = FALSE}
+#Model For bedroom count prediction
+model2 =lm(data = listing, beds~size)
+
+#predict number of bedrooms for each commercial office building using linear model and office size
+commercial2<- commercial_proj%>% dplyr::select(size)
+commercial2$size<- as.numeric(commercial2$size)
+predictions = predict(model2, commercial2)
+
+#set predicted values to dataframe and cap predicted bedroom count at 4
+commercial_proj$beds<- round(predictions)
+commercial_proj$beds<- ifelse(is.na(commercial_proj$beds), 2, commercial_proj$beds)
+commercial_proj$beds<- ifelse(commercial_proj$beds>5, 4, commercial_proj$beds)
+```
+
+
+```{r include = FALSE}
+#format commercial data
+#Add Distance based features to dataset
+commercial_proj<- commercial_proj%>%drop_na()
+
+#Add distance to subway as a feature in commercial dataset
+dist_list_subway = st_nn(commercial_proj$geometry, subway$geometry, k = 1, returnDist = T)
+df_subway<- as.data.frame(dist_list_subway['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+commercial_proj<- commercial_proj%>% mutate(prox_subway = df_subway$result)
+
+#Add distance to greenspace as a feature in commercial dataset
+dist_list_green = st_nn(commercial_proj$geometry, green_space$geometry, k = 1, returnDist = T)
+df_green<- as.data.frame(dist_list_green['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+commercial_proj<-commercial_proj %>%mutate(prox_green = df_green$result)
+
+#Add distance to grocery stores as a feature in commercial dataset
+grocery_stores<-grocery_stores%>% st_transform('EPSG:2017')
+dist_list_grocery = st_nn(commercial_proj$geometry, grocery_stores$geometry, k = 1, returnDist = T)
+df_grocery<- as.data.frame(dist_list_grocery['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+commercial_proj<-commercial_proj %>%mutate(prox_grocery = df_grocery$result)
+
+#Add distance to planned affordable housing developments as a feature in commercial dataset
+affordable_housing<-affordable_housing%>% st_transform('EPSG:2017')
+dist_list_affordable = st_nn(commercial_proj$geometry, affordable_housing$geometry, k = 1, returnDist = T)
+df_affordable<- as.data.frame(dist_list_affordable['dist']) %>% pivot_longer(cols = starts_with('dist'), values_to = 'result')
+commercial_proj<-commercial_proj %>%mutate(prox_affordable = df_affordable$result)
+
+#extract crime rates at commercial apartments
+commercial_full<- terra::extract(rast_crime, commercial_proj) %>% mutate(across(layer, ~replace_na(., median(.,na.rm = TRUE ))))
+
+#set new column with obersved crime rates
+commercial_proj$crime_rate<- commercial_full$layer
+
+commercial_proj$size<- as.numeric(commercial_proj$size)
+commercial_proj$size[is.na(commercial_proj$size)]<- median(commercial_proj$size, na.rm =TRUE)
+```
+
+
+```{r include = FALSE}
+#create grid for interpolation over commercial data
+commercial_locations<- commercial_proj%>%dplyr::select() %>% st_as_sfc(crs = 2017)
+
+#create a grid over which to interpolate commercial office prices
+commercial_grid<- st_as_stars(list(pts = matrix(1,length(commercial_locations))), crs = 'EPSG:2017')%>%
+  st_set_dimensions(names = c('office', 'alt'))%>%
+  st_set_dimensions('office', commercial_locations)
+
+#create reduced grid over which to interpolate predicted rent
+commercial_grid2<- st_as_stars(list(pts = matrix(1,length(commercial_locations))), crs = 'EPSG:2017')%>%
+  st_set_dimensions(names = c('office', 'alt'))%>%
+  st_set_dimensions('office', commercial_locations)
+
+#cap commercial office size at 4500 square feet
+commercial_proj$size = ifelse(commercial_proj$size>4500, 4500, commercial_proj$size)
+
+
+#add attributes for commercial grid 1
+commercial_grid$beds = commercial_proj$beds
+commercial_grid$size = commercial_proj$size
+commercial_grid$prox_subway = commercial_proj$prox_subway
+commercial_grid$prox_grocery = commercial_proj$prox_grocery
+commercial_grid$prox_green= commercial_proj$prox_green
+commercial_grid$prox_affordable = commercial_proj$prox_affordable
+commercial_grid$crime_rate = commercial_proj$crime_rate
+
+#add attributes for commercial grid 2
+commercial_grid2$beds = commercial_proj$beds
+commercial_grid2$size = commercial_proj$size
+commercial_grid2$prox_grocery = commercial_proj$prox_grocery
+commercial_grid2$prox_affordable = commercial_proj$prox_affordable
+```
+
+## Universal Kriging
+
+Following ordinary kriging, the main models under consideration in this work were created. Two universal kriging model versions were explored, each with a variogram that included an error term to improve smoothing of interpolated rent price values. The first model version included all previously mentioned predictors to interpolate rent prices while the second model included only a subset of variables, motivated by findings from the exploratory analysis. After fitting universal kriging models, each was used to interpolate rent price at commercial office locations. Results of this process showed generally reasonable rent price predictions for most locations with predicted values for the full standard model ranging from \$1944 to \$15733 a mean of $8041 and a standard deviation of 247.9. 
+
+  While predicted values were reasonable, further analysis of model accuracy using cross validation indicated that models occasionally predicted negative rent price values. This result motivated the use of a log transformation in the response variable after alternative strategies failed to limit predictions above 0. Secondary models using the same predictor sets were trained to predict the logarithm of the rent price before being used in interpolation of rent at commercial locations. Use of a log transformation appeared successful in maintaining reasonable predictions for commercial office rent, and predicting positive values when tested in a cross validation process, when predictions were transformed back to their original scale. It should also be noted that all models of interest tended to estimate high rent prices among commercial locations. *Figure 6* provides the locations of the office spaces with the top five highest predicted rent and the highest predicted ratio of rent to sale price based on standard models while *Figure 7* provides the top locations based on cost to rent ratio using the log models. Top locations based on absolute rent price were the same between model types. As well, rankings remained the same for both the full and reduced feature set models. Top investment locations based on rent to cost ratio differ meaningfully from those with the highest predicted rent and differ between models. Top investment locations based on absolute predicted rent as well as rent to cost ratio are of value as investors looking for a property to hold long term may benefit more from a higher absolute rent price. Comparatively, those who want to break even as fast as possible would find more value in the rent to cost ratio.    
+
+```{r include = FALSE}
+## universal kriging models
+#drop listing duplicates
+list_final<- listing[!duplicated(listing$geometry),]
+
+#create the first variogram for the full model
+variogram_univ<- variogram(price~size+beds+prox_grocery+prox_affordable+prox_green+prox_subway+crime_rate, list_final)
+
+#create the reduced variogram
+variogram_univ_reduced<-variogram(price~size+beds+prox_grocery+prox_affordable, list_final)
+
+variogram_log<- variogram(log(price)~size+beds+prox_grocery+prox_affordable+prox_green+prox_subway+crime_rate, list_final)
+  
+variogram_log_reduced<- variogram(log(price)~size+beds+prox_grocery+prox_affordable, list_final)
+
+#fit each of the variograms of interest
+fitted_var_univ<- fit.variogram(variogram_univ, vgm(800000,'Exp',1500,1, Err = 1.5))
+fitted_reduced_var<- fit.variogram(variogram_univ_reduced, vgm(800000,'Exp',1500,1, Err = 1.5))
+fitted_log<- fit.variogram(variogram_log, vgm(800000,'Exp',1500,1, Err = 1.5))
+fitted_log_reduced<- fit.variogram(variogram_log_reduced, vgm(800000,'Exp',1500,1, Err = 1.5))
+
+#perform universal kriging using the previously created variograms for both the reduced and full models
+kriging_univ_full<- krige(formula=price~size+beds+prox_grocery+prox_affordable+prox_green+prox_subway+crime_rate, list_final, newdata = commercial_grid, model = fitted_var_univ)
+
+kriging_univ_full2<- krige(formula =price~size+beds+prox_grocery+prox_affordable, list_final, newdata = commercial_grid2, model = fitted_reduced_var)
+
+kriging_log_full<- krige(formula=log(price)~size+beds+prox_grocery+prox_affordable+prox_green+prox_subway+crime_rate, list_final, newdata = commercial_grid, model = fitted_log)
+
+kriging_log_reduced<- krige(formula=log(price)~size+beds+prox_grocery+prox_affordable, list_final, newdata = commercial_grid2, model = fitted_log_reduced)
+
+#sort interpolated values by predicted rent price
+sorted_preds<- kriging_univ_full %>% arrange(desc(var1.pred)) %>% st_join(commercial_proj, join = st_nearest_feature)
+
+sorted_reduced_preds<- kriging_univ_full2%>%arrange(desc(var1.pred)) %>% st_join(commercial_proj, join = st_nearest_feature)
+
+sorted_log_preds<- kriging_log_full %>% arrange(desc(var1.pred)) %>% st_join(commercial_proj, join = st_nearest_feature)
+
+sorted_reduced_log_preds<- kriging_log_reduced%>%arrange(desc(var1.pred)) %>% st_join(commercial_proj, join = st_nearest_feature)
+
+
+#join predictions with inital office space dataset
+joined_full<- st_join(sorted_preds, commercial_proj, join = st_nearest_feature)
+joined_reduced<- st_join(sorted_reduced_preds, commercial_proj, join = st_nearest_feature)
+joined_full_log<- st_join(sorted_log_preds, commercial_proj, join = st_nearest_feature)
+joined_reduced_log<- st_join(sorted_reduced_log_preds, commercial_proj, join = st_nearest_feature)
+
+#create variable to indicate ratio of predicted rent to sale price
+joined_reduced$invest_ratio<- joined_reduced$var1.pred/joined_reduced$price.x
+joined_full$invest_ratio<- joined_full$var1.pred/joined_full$price.x
+joined_reduced_log$invest_ratio<- joined_reduced_log$var1.pred/joined_reduced_log$price.x
+joined_full_log$invest_ratio<- joined_full_log$var1.pred/joined_full_log$price.x
+
+#sort by ratio
+sorted_ratio<- joined_reduced%>% arrange(desc(invest_ratio))
+sorted_full_ratio<- joined_full%>% arrange(desc(invest_ratio))
+sorted_ratio_log<- joined_reduced_log%>% arrange(desc(invest_ratio))
+sorted_full_ratio_log<- joined_full_log%>% arrange(desc(invest_ratio))
+
+#plot top five commercial investment targets based on predicted rent price
+preds1<- tm_layout(main.title = 'Locations of Office Space with Top Five \nHighest Predicted Rent Price \nUsing Standard Model', title.size = 0.5)+
+tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(sorted_preds[1:6,])+
+  tm_symbols(col = 'green', size = 0.3)+
+  tm_shape(sorted_reduced_preds[1:6,])+
+  tm_symbols(col = 'blue', size = 0.1)+
+  tm_text('address', size = 0.7)
+
+#plot top five investment targets based on ratio 
+preds2 <- tm_layout(main.title = 'Locations of Office Space with Top Five \nHighest Predicted Rent to Cost Ratio \nUsing Standard Model', title.size = 0.5)+
+tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(sorted_ratio[1:6,])+
+  tm_symbols(col = 'green', size = 0.3)+
+  tm_shape(sorted_full_ratio[1:6, ])+
+  tm_text('address.x', size = 0.7)
+  
+#plot top five investment targets for log model 
+preds3<- tm_layout(main.title = 'Locations of Office Space with Top Five \nHighest Predicted Rent Price \nUsing Log Model', title.size = 0.5)+
+tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(sorted_log_preds[1:6,])+
+  tm_symbols(col = 'green', size = 0.4)+
+  tm_shape(sorted_reduced_log_preds[1:6,])+
+  tm_symbols(col = 'blue', size = 0.2)+
+  tm_text('address', size = 0.7)
+
+#plot top five investment targets by ratio for log model
+preds4 <- tm_layout(main.title = 'Locations of Office Space with Top Five \nHighest Predicted Rent to Cost Ratio \nUsing Log Model', title.size = 0.5)+
+tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(sorted_ratio_log[1:6,])+
+  tm_symbols(col = 'green', size = 0.4)+
+  tm_shape(sorted_full_ratio_log[1:6, ])+
+  tm_symbols(col = 'blue', size = 0.2)+
+  tm_text('address.x', size = 0.7)
+
+
+```
+
+
+```{r fig.show = 'hold', fig.cap = 'hold', out.width = '60%',fig.cap='Top investment locations based on absolute predicted rent price (top) and ratio of predicted rent to sale price (bottom) for kriging models predicting outright price.'}
+par(mfrow = c(1,2))
+preds1
+preds2
+```
+
+
+```{r fig.cap='Top investment locations predicted based on ratio of predicted rent to sale price for the log models.'}
+preds4
+```
+
+
+## Model Validation
+
+Following prediction of optimal commercial office investment locations, cross validation of kriging models was completed. This cross validation process provided the only means to assess model accuracy as truth values do not exist for commercial targets to allow validation in that form. 5 fold cross validation was used with outcomes displayed in *Figure 8* below. The figure indicates the magnitude of the residual at each apartment location for the standard and log models containing all predictors. Residuals appear inconsistent in magnitude across downtown Toronto with some spatial auto-correlation appearing across regions of the observed area. Notably, the areas near the predicted optimal investment locations appear to have generally small residuals compared to regions such as the north edge of the downtown. As well, residuals appear small in the south and eastern areas of downtown with larger residuals appearing moving away from downtown to the north and west. While there appears to be definite spatially correlated variance in the magnitude of residuals, predictions appear generally accurate with the mean of the absolute value of residuals for the standard model observed at 828.88. This means predictions of apartment rent price were normally within $800 of the true value. While this error rate may not be acceptable in some instances, for the current work, this mean absolute error is reasonable.            
+
+```{r fig.show = 'hold', out.width = '65%', fig.cap='Spatial variation in residuals of kriging models fit using the full feature set. The image presented on the top provides residuals from the model using price as the response while the image on the bottom indicates residuals based on log(price).'}
+
+#kriging cross validation
+
+#complete cross validation process for both models of interest
+krige_cv_log_full<- krige.cv(formula=log(price)~size+beds+prox_grocery+prox_affordable+prox_green+prox_subway+crime_rate, list_final, model = fitted_var_univ, nfold =5)
+
+krige_cv_full = krige.cv(formula =price~size+beds+prox_grocery+prox_affordable+prox_green+prox_subway+crime_rate, list_final, model = fitted_reduced_var, nfold =5) 
+
+#create column to represent absolute residual value
+krige_cv_full$`Absolute Value Residual`<- sqrt(krige_cv_full$residual^2)
+krige_cv_log_full$`Absolute Value Residual`<- sqrt(krige_cv_log_full$residual^2)
+
+#plot residual magnitude at apartment locations
+resid1<- tm_layout(main.title = 'Magnitude of Residual at Listings \nAcross Toronto (Standard Model)')+
+  tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(krige_cv_full)+
+  tm_symbols(size = 'Absolute Value Residual', col = 'blue')
+
+#plot residual magnitude at apartment locations
+resid2<- tm_layout(main.title = 'Magnitude of Residual at Listings \nAcross Toronto (Logarithm Model)')+
+  tm_shape(osm)+
+  tm_rgb()+
+  tm_shape(krige_cv_log_full)+
+  tm_symbols(size = 'Absolute Value Residual', col = 'blue')
+
+#create table to display cross validation results for models of interest
+krige_cv_full<- as.data.frame(krige_cv_full)
+krige_cv_full = krige_cv_full%>% dplyr::select(-c(fold, geometry, zscore))
+
+
+par(mfrow = c(1,2))
+resid1
+resid2
+
+```
+
+## INLA Model 
+
+Beyond efforts in predicting potential rent at specific commercial point locations, alternate results were found when INLA was used to estimate rent across Toronto neighborhoods. Initial plans centered around the use of INLA for prediction of rent prices across all neighborhoods of Toronto, however, model inconsistencies and evidence of significant differences in the geographic structure of Toronto amenities outside of the downtown area were identified. As a result, it was decided that only the downtown area would be assessed, primarily for the purpose of comparing results to those of universal kriging models. The INLA model designed in this work included the reduced feature set, averaged over neighborhoods of Toronto, to predict outright rent price across the neighborhoods. The model was found to have an almost negligible spatial structured random effects term indicating the high degree of variation captured by the included predictors. 
+
+  Based on neighborhood rent estimations visualized in *Figure 9*, rent prices for commercial locations were extracted and ranked. Findings from this process indicated locations at 101-800 Bathurst Street and 415-120 Carlton Street to have the highest absolute predicted residential rent. The results of the INLA model showed a very narrow prediction range, varying no more than $500 among neighborhoods. Beyond INLA, rent price modelling using a GLM found results similar to those obtained using kriging models. Commercial locations with the highest predicted rent were found to be 37 Madison Avenue, 31 Elm Street and 404-80 Queen Street East. As this model was intended purely for comparison of results against kriging, limited emphasis was placed on feature selection or achieving maximum accuracy. Instead, the model was used to support or refute results of kriging. 
+
+
+```{r}
+#areal model
+neighborhoods<-listing%>% dplyr::select(-address) %>%aggregate(crime_rates, mean) %>% drop_na()
+
+neighborhoods$id<- seq(1, nrow(neighborhoods))
+
+#create bayesian network to map neighboring regions
+neighbs_nb<- neighborhoods%>% poly2nb(queen = TRUE) %>% nb2listw(style = "W") %>% as("CsparseMatrix")
+
+id_mod<- as.numeric(as.factor(neighborhoods$id))
+
+#build inla model
+#model_inla = inla(formula = #price~beds+size+prox_affordable+prox_grocery+crime_rate+prox_subway+prox_green+f(id_mod, model = "besag", graph = neighbs_nb),
+                #family = "gaussian", data = neighborhoods, 
+                #control.predictor=list(compute=TRUE))
+
+
+#build reduced inla model
+reduced_inla = inla(formula = price~beds+size+prox_grocery+f(id_mod, model = "besag", graph = neighbs_nb),
+                family = "gaussian", data = neighborhoods, 
+                control.predictor=list(compute=TRUE))
+
+n = nrow(neighborhoods)
+
+#assess components of inla model
+neighborhoods$means_icar<- reduced_inla$summary.random$id_mod$mean
+neighborhoods$linear_predictor = summary(reduced_inla)$linear.predictor$mean
+neighborhoods$fitted<- reduced_inla$summary.fitted.values$mean
+
+```
+
+
+
+```{r fig.cap = 'Predicted rent price across neighborhoods in dowtown Toronto. This image provides indication of neighborhood size as well as variation in predictions.'}
+
+#plot spatial random effects across regions
+ssre<- tm_shape(neighborhoods)+
+  tm_polygons(col = 'means_icar',
+              style = "cont", 
+              title = expression(gamma))+
+  tm_layout(frame = FALSE, legend.outside = TRUE, main.title = "Spatially Structured Random Effects")
+
+#plot linear predictor term across regions
+lin_pred<- tm_shape(neighborhoods)+
+  tm_polygons(col = "linear_predictor",
+              style = "cont", 
+              title = "linear predictor")+
+  tm_layout(frame = FALSE, legend.outside = TRUE, main.title = "Linear predictor component of model")
+
+#plot predicted values across regions
+main<- tm_shape(neighborhoods)+
+  tm_polygons(col = "fitted",
+              style = "cont", 
+              title = "Fitted Value")+
+  tm_layout(frame = FALSE, legend.outside = TRUE, main.title = "Fitted Values Predicted With INLA for Rent\n Price Across Neighborhoods")+
+  tm_shape(commercial_proj)+
+  tm_symbols(col = 'blue', size = 0.3)
+
+#sort neighborhoods by predicted rent values 
+highest_predicted = neighborhoods%>% arrange(desc(fitted))
+
+#map predicted values to commercial locations for final analysis
+highest_pred_commercial = st_join(commercial_proj,highest_predicted, join = st_nearest_feature)
+
+#use glm to predict rent prices of commercial locations
+#build glm to predict rent price
+model_test = glm(formula = price~beds+size+prox_affordable+prox_grocery+prox_green+prox_subway+crime_rate, data = listing, family = 'Gamma')
+
+#arrange commercial dataset for model inference
+commercial_pred<- as.data.frame(commercial_proj)%>% dplyr::select(price, address, beds,size, prox_affordable, prox_grocery, prox_green, prox_subway, crime_rate)
+
+address<- commercial_pred$address
+commercial_pred<- commercial_pred %>% dplyr::select(-c(address, price))
+commercial_pred$preds = predict(object = model_test,commercial_pred, type = 'response')
+
+#organize results by predicted rent price and add address back to the dataframe
+commercial_pred$address<- address
+arranged_com<- commercial_pred%>% arrange(desc(preds))
+
+main
+print(toronto_map, vp = viewport(0.25, 0.70, width = 0.2, height = 0.2))
+```
+
+
+# Discussion
+
+Based on the universal kriging results presented above, it can be concluded that the proposed models have potential in the identification of commercial office investment targets. While all four kriging models provided similar overall results, the models that included all predictors performed best. This conclusion is based primarily on the outcomes of cross validation. Cross validation supported findings that all four models are viable in predicting rental prices with the lowest mean absolute error achieved by the standard and log full models. This supports the selection of spatial predictors in this work as the inclusion of subway proximity, green space proximity and crime rates had a positive impact on model outcomes. As well, the positive outcomes recognized in the cross validation process promote future work using universal kriging in estimation of apartment rent across across Toronto. This use case could be valuable for renters and landlords, especially those with property in areas where models predicted with low error. Although most areas of downtown Toronto retained somewhat low error during prediction, areas to the north and west had generally higher error, possibly due to reduced listing density with high price variance in these areas.  
+  
+  Despite the positive initial results, outcomes of the kriging process are not without uncertainty. The standard full model had certain instances of predicting negative price values during cross validation. While this problem did not impact prediction of rent at commercial locations, it is an issue that indicates underlying model inaccuracies. During model testing, several strategies were tested to rectify this issue including capping the upper extremes of predictors and altering the predictor set used in model fitting. These strategies were unsuccessful and motivate a problem to be explored in future work. As well, some of the predicted rent values obtained from kriging models were extremely unrealistic. While investment target rankings were consistent the actual rent predictions need further assessment. Additionally, while the cross validation process was useful in obtaining a general sense of model accuracy, the findings of the process cannot be guaranteed to translate into accuracy in prediction of rent at commercial locations. As a result, model accuracy cannot be ensured for those using the current model to identify investment targets.
+
+  Beyond understanding the viability of the universal kriging models, results of the areal INLA model and the GLM allowed further analysis of proposed models through comparison of outcomes. The INLA model performed poorly overall with errors arising when attempting to include the full feature set as predictors. As previously noted, the spatial structured random effect term of the model added almost nothing to fitted values and bedroom count was indicated as the only significant predictor in the model. It is likely that further development of the INLA model would be required to achieve meaningful results. Issues in the aggregation process for spatial predictors when aggregating listings across neighborhoods may be partially responsible for the poor model outcomes. The large size of neighborhoods may have negatively impacted results by capturing areas with great range in socioeconomic status.
+  
+  As expected, commercial office rent predictions of the INLA model were not consistent with those observed during the kriging process. This outcome may be a sign of strength in the kriging models as they appear to be capturing variation between listing prices at a lower level than the INLA model. For this reason universal kriging is a more effective strategy in handling the problem of rent interpolation in downtown Toronto, compared to an areal approach such as the INLA model observed here. In addition to INLA results, rent prediction using a GLM produced results similar to kriging when predicting rent price among commercial locations. This finding reinforces the potential of kriging in rent prediction as it indicates that the listings suggested as optimal investment targets by the model were less likely to have occurred simply due to chance. This result also promotes further development of the GLM model through feature elimination and cross validation as an alternative to the kriging models. 
+  
+  Following comparison of kriging to outcomes of extended modelling, the final analysis completed explored conversion potential of commercial office investment targets. *Figure 10* shows two images of top identified locations on Bathurst street where the office is located on an upper level of the building and on Elm Street. Observation of the interior of these buildings and other identified locations provided indication that these offices could very likely be converted to residential dwellings. The identified offices were spacious with natural light and layouts that would not restrict a residence. This additional exploration further motivates the analysis and investment strategy presented in this work. 
+    Overall, the universal kriging models that included the full feature set were most successful in interpolating potential residential rent prices at commercial office locations. While there remains some inconsistencies in model predictions and accuracy, further exploration into the causes of these issues will allow for guarantees regarding model accuracy.   
+    
+![Images of top predicted office spaces for investment on Bathurst Street (left) and Elm Street (right)](Data\Picture1.png)
+
+# Limitations and Future Work
+
+While the objectives of this work were met, successfully identifying several investment targets, several limitations were identified that reduce generalizability of the current work and promote future research. First, generalizability of this research was negatively impacted by limitations in the gathered real estate listing data. While the scraping process was generally successful in compiling both apartment rental listings and commercial office sale listings, retrieval was largely reliant on accuracy of data on listing websites. As a result, apartment listings were found to contain artefacts where original data was input incorrectly. Although certain pre-processing steps were undertaken to correct these errors such as filtration and capping of apartment size and price variables, it is likely the some inconsistencies remained. Further, related to commercial listings, restrictions from the Zolo.com site resulted in large quantities of missing data as well as the inherent issue of missing bedroom counts among commercial listings. It is likely that solutions to remedy these issues were imperfect, leading to some inconsistencies in the interpolation/prediction process for estimating rent. Overall, the data limitations inherent to the sites from which listing data was retrieved was a factor that could negatively impact accuracy of modelling outcomes. 
+
+  Beyond general data inaccuracies, this work is dependent on the locations of current rental apartment listings. The locations of these listings at any given time are arbitrary, resulting in final models that may ultimately be accurate in some locations of downtown Toronto and inaccurate in others due to availability of listings. This outcome depends solely on the rental locations available during model fitting. Future work on this topic could benefit from expanding the training dataset through incorporation of listings from a variety of rental sites instead of single sourced data. 
+  
+  Further, the outcomes of the current work are limited by the inability to truly assess model accuracy in predicting potential rent prices of converted office space. Despite positive findings related to potential investment targets, cross validation during the kriging process was the only form in which model accuracy could be assessed. As model inference was performed on commercial properties that do not have a true rent price associated with them, validation of inferences made at these locations was impossible. The accuracy assessment completed using apartment listings and cross validation  may not generalize to commercial properties which reduces the certainty of results.
+  
+  Additionally, a major limitation of this work is the inability to observe information related to the difficulty or outright ability to convert office space to residential space. The current model can indicate the potential rent return for office space, but cannot ensure the office space can reasonably be converted to residential space. As a result, the models proposed in this work exist as initial investment indicators rather than a more comprehensive analysis solution. To achieve the most benefit out of this work, additional research to explore an identified location is required. The inability to assess conversion potential in an office location greatly limits the practicality of the model outcomes. Future work could explore a supporting model using a convolutional neural network to estimate the renovation cost of an office based on previous instances of residential conversion if such data is available. This model could support the current work in providing an additional dimension of cost to help estimate profitability of a property.
+  
+  Finally, further limiting application of findings is the restriction of analysis to the downtown area. While the initial intention of this work was to extend modelling to include all of Toronto, limitations in computation speed as well as significant differences in the distribution of apartment listings throughout Toronto motivated use of just the downtown area. Although this decision likely allowed for more accurate predictions near downtown, it also reduced generalizability of the model. Focusing on just the downtown area was successful, however, future work should look to explore extending the model to other areas of Toronto gradually to understand the trade-off between increased training data and the dissimilarity of various regions of Toronto.         
+
+# Conclusion 
+
+Overall, the universal kriging models presented in this work show promise in applications of rent price prediction in urban areas of high population density. Of the four models presented in this work, those including all of bedroom count, size, grocery store proximity, proximity to planned affordable housing developments, proximity to green space, proximity to the subway and crime rate as predictors, performed best. Kriging models predicting rent price outright as well as the logarithm of rent price were found to have general success in interpolating rent across commercial office spaces to identify targets for conversion to residential dwellings. Model inference identified commercial locations at 37 Madison avenue, 31 Elm Street and 407-80 Queen Street East as those with the highest predicted residential rent price while locations at 507-800 Bathurst Street and 308-120 Carlton Street had the highest predicted rent to sale price ratio. As well, comparison of kriging model results with those achieved using a GLM indicated a high degree of similarity, further supporting the strength of the universal kriging models. This work was successful in generating a spatial model to be used in the prediction of potential rent prices of commercial office space if converted to residential space. With further tuning and deeper evaluation of model accuracy, the models presented in this research could have meaningful applications in general rent price analysis for apartments as well as larger scale analysis of commercial office investment targets.    
+
+# References
+
+### Data Sources:
+
+1. Rentals.ca. (2023). Toronto. Retrieved from 
+https://rentals.ca/toronto?bbox=-79.43203,43.63689,-79.35401,43.67521
+
+2. Toronto Open Data. (2023). Neighborhood Crime Rates. Retrieved from
+https://open.toronto.ca/dataset/neighbourhood-crime-rates/
+
+3. Toronto Open Data. (2023). Upcoming and Recently Completed Affordable Housing Units. Retrieved from
+https://open.toronto.ca/dataset/upcoming-and-recently-completed-affordable-housing-units/
+
+4. Toronto Open Data. (2023). TTC Subway Shapefiles. Retrieved from
+https://open.toronto.ca/dataset/ttc-subway-shapefiles/
+
+5. Toronto Open Data. (2023). Green Spaces. Retrieved from 
+https://open.toronto.ca/dataset/green-spaces/
+
+6. Toronto Open Data. (2023). Zoning By-law. Retrieved from 
+https://open.toronto.ca/dataset/zoning-by-law/
+
+7. ZOLO. (2023). Toronto Office Spaces for Sale. Retrieved from 
+https://www.zolo.ca/toronto-real-estate/commercial-office
+
+
+### Additional References 
+
+8. Holder, s. (2022). What Does Affordable Housing Do to Nearby Property Values?. *Bloomberg*. Retrieved from
+https://www.bloomberg.com/news/articles/2022-05-02/does-affordable-housing-lower-property-values
+ 
+9. Gupta, A., Mittal, V., & Van Nieuwerburgh, S. (2022). Work from home and the office real estate apocalypse (No. w30526). National Bureau of Economic Research.
+
+10. The Canadian Press. (2023). Canada's national office vacancy rate hit an all-time high in Q1: CBRE. Retrieved June 9th, 2023 from https://financialpost.com/real-estate/property-post/canada-national-office-vacancy-rate-all-time-high-q1-cbre
+
+11. Toronto Residential Real Estate Board. (2023). Rental Market Report. Retrieved June 6th, 2023 from https://trreb.ca/index.php/market-news/rental-market-report
+
+12. Glaze, A. (2023). How Rising Interest Rates Can Hurt—Or Help—Businesses. Retrieved June 9th, 2023 from https://www.forbes.com/sites/forbesfinancecouncil/2023/01/31/how-rising-interest-rates-can-hurt-or-help-businesses/?sh=e6adcb24f0eb
+
+13. Bank of Canada. (2023). Price Check Inflation in Canada. Retrieved June 9th, 2023 from https://www.bankofcanada.ca/2019/02/price-check-inflation-in-canada/
+
+
+### Images
+https://www.acotoronto.ca/building.php?ID=4169
+
+https://www.realtor.ca/real-estate/25521710/507-800-bathurst-st-e-toronto-annex
+
+
+
+
+
+
+
+
+
